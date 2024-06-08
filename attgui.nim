@@ -1,4 +1,4 @@
-import std/[strformat,strutils,unicode,uri,os]
+import std/[strformat,strutils,unicode,uri,os, tables]
 import niup/niupc
 import niup/niupext
 
@@ -8,6 +8,7 @@ var
   isNewFileDrop: bool = true
 
 proc makeFilesGbox(files: seq[string])
+proc makeTagsGbox(tab: OrderedTable[string, seq[string]])
   
 proc cb_btn_quit(ih: PIhandle): cint {.cdecl.} =
   IUP_CLOSE
@@ -54,7 +55,7 @@ proc makeFilesGbox(files: seq[string])=
   SetHandle("gbox_files", gbox)
   echo $GetAttribute(gbox, "NUMLIN")
   for fp in files:
-    let (_, fn, ext) = splitFile(fp)
+    let (_, fn, _) = splitFile(fp)
     let btn = FlatButton(cstring(fn))
     SetAttribute(btn, "NAME", cstring(fp))
     SetAttribute(btn, "TOGGLE", "YES")
@@ -70,20 +71,24 @@ proc makeFilesGbox(files: seq[string])=
     gbox = Append(gbox, txt)
     Map(btn)
     Map(txt)
-  Refresh(gbox)
   echo $GetAttribute(gbox, "NUMLIN")
   let scrollbox = ScrollBox(gbox)
-  Map(gbox)
-  Refresh(scrollbox)
   vbox = Append(vbox, scrollbox)
-  Map(scrollbox)
-  Refresh(vbox)
-  Map(vbox)
-  Refresh(frm)
   let zbox = GetHandle("zbox_files")
   SetAttribute(zbox, "VALUE", "frm_files")
+
+  Refresh(gbox)
+  Refresh(vbox)
+  Refresh(frm)
+  Refresh(scrollbox)
+  Map(gbox)
+  Map(scrollbox)
+  Map(vbox)
   Refresh(zbox)
   Refresh(dlg)
+  var tab = initOrderedTable[string, seq[string]]()
+  tab["ALB"] = @["Sepp", "Maria"]
+  makeTagsGbox(tab)
 
 proc cb_lbl_dropfiles_here(ih: PIhandle, filename: cstring, num, x, y: cint):cint {.cdecl.} =
   # let lbl_dropfiles_here = GetHandle("lbl_dropfiles_here")
@@ -144,27 +149,11 @@ proc initGui*(args: seq[string])=
   SetAttribute(gbox_filesHeader, "NORMALIZESIZE", "HORIZONTAL")
   SetAttribute(gbox_filesHeader, "ALIGNMENTCOL0", "ALEFT")
 
-  let gbox_tagsHeader = GridBox(
-    SetAttributes(Label("Tagname"), "FONTSTYLE=Bold,EXPAND=HORIZONTAL,ALIGNMENT=ACENTER"),
-    SetAttributes(Label("Tagvalues"), "FONTSTYLE=Bold,EXPAND=HORIZONTAL,ALIGNMENT=ACENTER"),
-    SetAttributes(Label("Action Buttons"), "FONTSTYLE=Bold,EXPAND=HORIZONTAL,ALIGNMENT=ACENTER"),
-    nil,
-  )
-  SetAttribute(gbox_tagsHeader, "NUMDIV", "3")
-  SetAttribute(gbox_tagsHeader, "MARGIN", "2x2")
-  SetAttribute(gbox_tagsHeader, "GAPLIN", "5")
-  SetAttribute(gbox_tagsHeader, "GAPCOL", "5")
-  SetAttribute(gbox_tagsHeader, "SIZECOL", "0")
-  SetAttribute(gbox_tagsHeader, "SIZELIN", "-1")
-  SetAttribute(gbox_tagsHeader, "ALIGNMENTLIN", "ACENTER")
-  SetAttribute(gbox_tagsHeader, "NORMALIZESIZE", "HORIZONTAL")
-  SetAttribute(gbox_tagsHeader, "ALIGNMENTCOL0", "ALEFT")
-  
   let vbox_files = Vbox(gbox_filesHeader, nil)
   SetHandle("vbox_files", vbox_files)
 
-  let vbox_tags = Vbox(gbox_tagsHeader, nil)
-  SetHandle("vbox_files", vbox_tags)
+  let vbox_tags = Vbox(Label("...drop files first...."), nil)
+  SetHandle("vbox_tags", vbox_tags)
 
   # --- FRAMEs ----------------------------------
   var frm_files = Frame(vbox_files)
@@ -178,6 +167,7 @@ proc initGui*(args: seq[string])=
   
   var frm_tags = Frame(vbox_tags)
   SetAttribute(frm_tags, "EXPAND", "YES")
+  SetHandle("frm_tags", frm_tags)
 
   # --- MAINLAYOUT ------------------------------
 
@@ -206,6 +196,85 @@ proc initGui*(args: seq[string])=
 
   MainLoop()
   Close()
+
+proc cb_btns_tags(ih: PIhandle):cint {.cdecl.} =
+  IUP_DEFAULT
+
+proc makeTagsGbox(tab: OrderedTable[string, seq[string]]) = 
+  var frm = GetHandle("frm_tags")
+  var vbox = GetHandle("vbox_tags")
+  let dlg = GetHandle("dlg")
+  var vbox_child = GetChild(vbox, 1)
+  if vbox_child != nil:
+    Destroy(vbox_child)
+  vbox_child = GetChild(vbox, 0)
+  if vbox_child != nil:
+    Destroy(vbox_child)
+  var gbox_tagsHeader = GridBox(
+    SetAttributes(Label("Tagname"), "FONTSTYLE=Bold,EXPAND=HORIZONTAL,ALIGNMENT=ALEFT"),
+    SetAttributes(Label("Tagvalues"), "FONTSTYLE=Bold,EXPAND=HORIZONTAL,ALIGNMENT=ACENTER"),
+    SetAttributes(Label("Action Buttons"), "FONTSTYLE=Bold,ALIGNMENT=ARIGHT"),
+    nil,
+  )
+
+  SetAttribute(gbox_tagsHeader, "NUMDIV", "3")
+  SetAttribute(gbox_tagsHeader, "MARGIN", "2x2")
+  SetAttribute(gbox_tagsHeader, "GAPLIN", "5")
+  SetAttribute(gbox_tagsHeader, "GAPCOL", "5")
+  SetAttribute(gbox_tagsHeader, "SIZECOL", "0")
+  SetAttribute(gbox_tagsHeader, "SIZELIN", "-1")
+  SetAttribute(gbox_tagsHeader, "ALIGNMENTLIN", "ACENTER")
+  SetAttribute(gbox_tagsHeader, "NORMALIZESIZE", "HORIZONTAL")
+  SetAttribute(gbox_tagsHeader, "ALIGNMENTCOL0", "ALEFT")
+
+  var gbox = GridBox(
+    nil,
+  )
+  SetAttribute(gbox, "NUMDIV", "3")
+  SetAttribute(gbox, "MARGIN", "2x2")
+  SetAttribute(gbox, "GAPLIN", "5")
+  SetAttribute(gbox, "GAPCOL", "5")
+  SetAttribute(gbox, "SIZECOL", "0")
+  SetAttribute(gbox, "SIZELIN", "-1")
+  SetAttribute(gbox, "ALIGNMENTLIN", "ACENTER")
+  SetAttribute(gbox, "NORMALIZESIZE", "HORIZONTAL")
+  SetAttribute(gbox, "ALIGNMENTCOL0", "ALEFT")
+  SetHandle("gbox_tags", gbox)
+
+  for k, v in tab.pairs():
+    let tagvalues = cstring(join(v, "|"))
+    let btn = FlatButton(cstring(k))
+    SetAttribute(btn, "NAME", cstring(k))
+    SetAttribute(btn, "TOGGLE", "YES")
+    SetAttribute(btn, "ALIGNMENT", "ALEFT")
+    # SetAttribute(btn, "EXPAND", "")
+    SetCallback(btn , "FLAT_ACTION", cb_btns_tags)
+
+    var txt = Text(nil)
+    SetAttribute(txt, "EXPAND", "HORIZONTAL")
+    SetHandle(cstring(fmt("txt_{k}")), txt)
+    SetAttribute(txt, "NAME", cstring(k))
+    SetAttribute(txt, "VALUE", tagvalues)
+    gbox = Append(gbox, btn)
+    gbox = Append(gbox, txt)
+    Map(btn)
+    Map(txt)
+
+  let scrollbox = ScrollBox(gbox)
+
+  vbox = Append(vbox, gbox_tagsHeader)
+  vbox = Append(vbox, scrollbox)
+  Map(gbox_tagsHeader)
+  Map(gbox)
+  Map(vbox)
+  Map(scrollbox)
+
+  Refresh(gbox)
+  Refresh(gbox_tagsHeader)
+  Refresh(vbox)
+  Refresh(scrollbox)
+  Refresh(frm)
+  Refresh(dlg)
 
 if isMainModule:
   initGui(@[])
