@@ -1,0 +1,181 @@
+import std/[strformat,strutils,unicode,uri]
+import niup/niupc
+import niup/niupext
+
+var
+  filesDroped: seq[string] = @[]
+  itemsSelection: seq[bool] = @[]
+  isNewFileDrop: bool = true
+
+proc cb_btns_tagname(ih: PIhandle):cint {.cdecl.}
+
+proc clearBoxFiles(ih: var PIhandle) =
+  let numlin = GetAttribute(ih, "NUMLIN")
+  echo numlin
+
+proc fillBoxFiles(ih: var PIhandle, fp: string) =
+  clearBoxFiles(ih)
+  discard
+
+proc cb_txt_killfocus(ih: PIhandle):cint {.cdecl.} =
+  echo $GetAttribute(ih, "NAME")
+  var gbox = GetHandle("box_files")
+  clearBoxFiles(gbox)
+  return IUP_DEFAULT
+
+proc fillTags(ih: var PIhandle, tags: seq[tuple[tagname, tagvalue: string]]) =
+  for tup in tags:
+    let btn = FlatButton(cstring(tup.tagname))
+    SetAttribute(btn, "NAME", cstring(tup.tagname))
+    SetCallback(btn , "FLAT_ACTION", cb_btns_tagname)
+
+    let txt = Text(nil)
+    if tup.tagvalue != "":
+      SetAttribute(txt, "VALUE", cstring(tup.tagvalue))
+    SetAttribute(txt, "EXPAND", "HORIZONTAL")
+    SetCallback(txt, "KILLFOCUS_CB", cb_txt_killfocus)
+    SetHandle(cstring(fmt("txt_{tup.tagname}")), txt)
+    SetAttribute(txt, "NAME", cstring(tup.tagname))
+    ih = Append(ih, btn)
+    ih = Append(ih, txt)
+    Map(btn)
+    Map(txt)
+    Refresh(ih)
+
+proc cb_btns_tagname(ih: PIhandle):cint {.cdecl.} =
+  let btnName = GetAttribute(ih, "NAME")
+  var s = "txt_" & $btnName
+  let txt = GetHandle(cstring(s))
+  echo $GetAttribute(txt, "VALUE")
+  return IUP_DEFAULT
+
+proc cb_dlg_drop(ih: PIhandle, file: cstring, num,x,y,: cint):cint {.cdecl.} =
+  # let gbox = GetHandle("box_files")
+  #
+  # if isNewFileDrop:
+  #   filesDroped = @[]
+  #   itemsSelection = @[]
+  # let fp = decodeUrl($file)
+  # filesDroped.add(fp)
+  # if num == 0:
+  #   isNewFileDrop = true
+  #   # ad.readInFiles(filesDroped, true)
+  #   # fillMatrixFiles(mat, ad)
+  #   # clearMatrixFrames()
+  #
+  # else:
+  #   isNewFileDrop = false
+  # return IUP_CONTINUE
+  return IUP_CONTINUE
+
+proc cb_btn_quit(ih: PIhandle): cint {.cdecl.} =
+  IUP_CLOSE
+
+proc initGui*(args: seq[string])=
+  if len(args) > 0:
+    # ad.readInFiles(args)
+    discard
+  # niupext.Open()
+  Open()
+  ControlsOpen()
+  SetGlobal("UTF8MODE", "YES")
+
+  # --- CONTROLS --------------------------------
+  let
+    lbl_header = Label("this is att")
+    txt_drop_files_here = Text(nil)
+    btn_quit = Button("quit", nil)
+
+  # --- CONTAINERS ------------------------------
+#[
+  var box_files = GridBox(
+    SetAttributes(Label("Files..."), "FONTSTYLE=Bold"),
+    SetAttributes(Label("---"), "FONTSTYLE=Bold"),
+    nil,
+  )
+  var box_tags = GridBox(
+    SetAttributes(Label("Tagname"), "FONTSTYLE=Bold"),
+    SetAttributes(Label("Value"), "FONTSTYLE=Bold"),
+    nil,
+  )
+#]
+
+  var frm_files = Frame(txt_drop_files_here)
+  var frm_tags = Frame(nil)
+
+  # --- ATTRIBUTES ------------------------------
+
+#[
+  SetAttribute(box_tags, "NUMDIV", "2")
+  SetAttribute(box_tags, "MARGIN", "2x2")
+  SetAttribute(box_tags, "GAPLIN", "5")
+  SetAttribute(box_tags, "GAPCOL", "5")
+  SetAttribute(box_tags, "SIZECOL", "1")
+  SetAttribute(box_tags, "SIZELIN", "-1")
+  SetAttribute(box_tags, "ALIGNMENTLIN", "ACENTER")
+  SetAttribute(box_tags, "NORMALIZESIZE", "HORIZONTAL")
+  # SetAttribute(box_tags, "EXPANDCHILDREN", "HORIZONTAL")
+  SetAttribute(box_tags, "ALIGNMENTCOL0", "ARIGHT")
+  SetAttribute(box_files, "NUMDIV", "2")
+  SetAttribute(box_files, "MARGIN", "2x2")
+  SetAttribute(box_files, "GAPLIN", "5")
+  SetAttribute(box_files, "GAPCOL", "5")
+  SetAttribute(box_files, "SIZECOL", "1")
+  SetAttribute(box_files, "SIZELIN", "-1")
+  SetAttribute(box_files, "ALIGNMENTLIN", "ACENTER")
+  SetAttribute(box_files, "NORMALIZESIZE", "HORIZONTAL")
+  SetAttribute(box_files, "ALIGNMENTCOL0", "ARIGHT")
+  SetAttribute(frm_files, "TITLE", "Files")
+  SetAttribute(frm_tags, "TITLE", "Tags")
+]#
+
+  # --- LAYOUT ----------------------------------
+  SetAttribute(lbl_header, "EXPAND", "HORIZONTAL")
+  SetAttribute(lbl_header, "ALIGNMENT", "ACENTER:ACENTER")
+
+  SetAttribute(txt_drop_files_here, "EXPAND", "YES")
+  SetAttribute(txt_drop_files_here, "VALUE", "Drop files here")
+
+  SetAttribute(btn_quit, "EXPAND", "HORIZONTAL")
+
+  SetAttribute(frm_files, "EXPAND", "YES")
+  SetAttribute(frm_tags, "EXPAND", "YES")
+
+  # --- HANDLES ---------------------------------
+  SetHandle("box_files", box_files)
+
+  # --- CALLBACKS -------------------------------
+  SetCallback(frm_files, "DROPFILES_CB", cb_dlg_drop)
+
+  SetCallback(btn_quit, "ACTION", cb_btn_quit) 
+
+  # --- MAINLAYOUT ------------------------------
+
+  let box_main = Vbox(
+      lbl_header,
+      frm_files,
+      frm_tags,
+      btn_quit,
+      nil
+  )
+  let dlg = Dialog(box_main)
+  SetAttribute(dlg, "TITLE", "att - another tag tool")
+  SetAttribute(dlg, "RASTERSIZE", "800x600")
+  SetAttribute(dlg, "MARGIN", "5x5")
+  # SetAttribute(dlg, "ICON", "att.ico")
+
+  SetAttribute(dlg, "SHRINK", "YES")
+
+  Map(dlg)
+  fillTags(box_tags, @[
+    ("ARTIST", "Da Sepp"),
+    ("GENRE", "Hardrock"),
+  ])
+
+  ShowXY(dlg, IUP_CENTER, IUP_CENTER)
+
+  MainLoop()
+  Close()
+
+if isMainModule:
+  initGui(@[])

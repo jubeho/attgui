@@ -1,0 +1,145 @@
+import std/[strformat,strutils,unicode]
+import niup/niupc
+import niup/niupext
+
+proc makeTagitem(ih: var PIhandle, tagname: string, value = "")
+proc cb_btns_tagname(ih: PIhandle):cint {.cdecl.}
+
+proc cb_txt_killfocus(ih: PIhandle):cint {.cdecl.} =
+  echo $GetAttribute(ih, "NAME")
+  return IUP_DEFAULT
+
+proc makeTagitem(ih: var PIhandle, tagname: string, value = "") =
+  let btn = FlatButton(cstring(tagname))
+  let txt = Text(nil)
+  if value != "":
+    SetAttribute(txt, "VALUE", value)
+  SetAttribute(btn, "NAME", cstring(tagname))
+  # SetHandle(cstring(fmt("btn_{tagname}")), btn)
+  SetCallback(btn , "FLAT_ACTION", cb_btns_tagname)
+  SetAttribute(txt, "NAME", cstring(fmt("txt_{tagname}")))
+  SetAttribute(txt, "EXPAND", "HORIZONTAL")
+  SetCallback(txt, "KILLFOCUS_CB", cb_txt_killfocus)
+  SetHandle(cstring(fmt("txt_{tagname}")), txt)
+  ih = Append(ih, btn)
+  ih = Append(ih, txt)
+  Map(btn)
+  Map(txt)
+  Refresh(ih)
+
+proc fillTagtable(ih: var PIhandle, tags: seq[tuple[tagname, tagvalue: string]]) =
+  for tup in tags:
+    echo tup.tagname
+    makeTagitem(ih, tup.tagname, tup.tagvalue)
+    let btn = FlatButton(cstring(tagname))
+
+    SetAttribute(btn, "NAME", cstring(tagname))
+  # SetHandle(cstring(fmt("btn_{tagname}")), btn)
+    SetCallback(btn , "FLAT_ACTION", cb_btns_tagname)
+    let txt = Text(nil)
+    if value != "":
+      SetAttribute(txt, "VALUE", value)
+    SetAttribute(txt, "NAME", cstring(fmt("txt_{tagname}")))
+    SetAttribute(txt, "EXPAND", "HORIZONTAL")
+    SetCallback(txt, "KILLFOCUS_CB", cb_txt_killfocus)
+    SetHandle(cstring(fmt("txt_{tagname}")), txt)
+    ih = Append(ih, btn)
+    ih = Append(ih, txt)
+    Map(btn)
+    Map(txt)
+    Refresh(ih)
+
+proc cb_btns_tagname(ih: PIhandle):cint {.cdecl.} =
+  let btnName = GetAttribute(ih, "NAME")
+  echo btnName
+  var s = "txt_" & $btnName
+  echo s
+  let txt = GetHandle(cstring(s))
+  echo $GetAttribute(txt, "VALUE")
+  # let ctagname = GetAttribute(ih, "TITLE")
+  # let tagname = unicode.toLower($ctagname)
+  # let txt = GetHandle(cstring(fmt("txt_{tagname}")))
+  # echo GetAttribute(txt, "VALUE")
+  return IUP_DEFAULT
+
+proc initGui*(args: seq[string])=
+  if len(args) > 0:
+    # ad.readInFiles(args)
+    discard
+  # niupext.Open()
+  Open()
+  ControlsOpen()
+  SetGlobal("UTF8MODE", "YES")
+
+  # --- CONTROLS --------------------------------
+  let
+    lbl_header = Label("this is att")
+    btn_quit = Button("quit", nil)
+
+  # --- CONTAINERS ------------------------------
+  var box_tagtable = GridBox(
+    SetAttributes(Label("Tagname"), "FONTSTYLE=Bold"),
+    SetAttributes(Label("Value"), "FONTSTYLE=Bold"),
+    nil,
+  )
+  var frm_tags = Frame(box_tagtable)
+
+  # --- ATTRIBUTES ------------------------------
+
+  SetAttribute(box_tagtable, "NUMDIV", "2")
+  SetAttribute(box_tagtable, "MARGIN", "2x2")
+  SetAttribute(box_tagtable, "GAPLIN", "5")
+  SetAttribute(box_tagtable, "GAPCOL", "5")
+  SetAttribute(box_tagtable, "SIZECOL", "1")
+  SetAttribute(box_tagtable, "SIZELIN", "-1")
+  SetAttribute(box_tagtable, "ALIGNMENTLIN", "ACENTER")
+  SetAttribute(box_tagtable, "NORMALIZESIZE", "HORIZONTAL")
+  # SetAttribute(box_tagtable, "EXPANDCHILDREN", "HORIZONTAL")
+  SetAttribute(box_tagtable, "ALIGNMENTCOL0", "ARIGHT")
+  SetAttribute(frm_tags, "TITLE", "Tags")
+  
+  # --- LAYOUT ----------------------------------
+  SetAttribute(lbl_header, "EXPAND", "HORIZONTAL")
+  SetAttribute(lbl_header, "ALIGNMENT", "ACENTER:ACENTER")
+
+  SetAttribute(btn_quit, "EXPAND", "HORIZONTAL")
+
+  SetAttribute(frm_tags, "EXPAND", "YES")
+
+  # --- HANDLES ---------------------------------
+  # --- CALLBACKS -------------------------------
+
+  # --- MAINLAYOUT ------------------------------
+
+  let box_main = Vbox(
+      lbl_header,
+      frm_tags,
+      nil
+  )
+  let win = Dialog(box_main)
+  SetAttribute(win, "TITLE", "att - another tag tool")
+  SetAttribute(win, "RASTERSIZE", "800x600")
+  SetAttribute(win, "MARGIN", "5x5")
+  # SetAttribute(dlg, "ICON", "att.ico")
+
+  SetAttribute(win, "SHRINK", "YES")
+
+  Map(win)
+  fillTagtable(box_tagtable, @[
+    ("ARTIST", "Da Sepp"),
+    ("GENRE", "Hardrock"),
+  ])
+  # makeTagitem(box_tagtable, "ALBUM", "Subba album he")
+  
+  # let btn_1 = FlatButton("Flatbutton")
+  # let txt_1 = Text(nil)
+  # box_tagtable = APPEND(box_tagtable, btn_1)
+  # box_tagtable = APPEND(box_tagtable, txt_1)
+
+  ShowXY(win, IUP_CENTER, IUP_CENTER)
+
+  MainLoop()
+  Close()
+
+if isMainModule:
+  initGui(@[])
